@@ -2119,7 +2119,13 @@ async function init() {
     //  상세는 2/8 로 갈린다 — 같은 화면에서 숫자가 다르면 어느 쪽도 못 믿는다 (2026-09-22 사용자)
     b.appendChild(el("span", m.complete ? "badge ok" : "badge",
       m.complete ? "완성" : `${m.stagesWithOutput}/${m.stageCount || STAGES.length}`));
-    b.addEventListener("click", () => showMonster(m.name));
+    b.addEventListener("click", async () => {
+      await showMonster(m.name);
+      // 좁은 화면에서는 목록이 본문 위에 있다 — 다 그린 뒤 본문으로 내려 준다
+      //  (그리기 전에 내리면 짧은 빈 본문 기준으로 내려가 제자리다)
+      if (matchMedia("(max-width: 900px)").matches)
+        document.getElementById("main").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
     li.appendChild(b);
     list.appendChild(li);
   }

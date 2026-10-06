@@ -807,3 +807,20 @@ body.static #order,
 body.static .go,
 body.static .btn2,
 body.static main textarea { display: none !important; }
+
+/* 좁은 화면(휴대폰) — 한 칸으로 쌓일 때 목록을 붙여 두면 투명한 목록 밑으로 본문이 겹쳐 지나간다
+   (2026-10-06 사용자 휴대폰 화면). 목록은 본문 위에 한 번만 놓고, 세로 자리를 덜 먹게 가로로 넘기는 띠로 */
+@media (max-width: 900px) {
+  .top { padding: 14px 16px; gap: 12px; }
+  .metrics { width: 100%; }
+  .metric { flex: 1 1 40%; min-width: 0; padding: 8px 12px; }
+  /* 칸 폭을 0 부터 — 가로 띠의 한 줄 폭(종류 9개 ≈ 1200px)이 칸을 끌어 넓혀 본문까지 화면 밖으로 밀었다 */
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .side { position: static; min-height: 0; min-width: 0; padding: 14px 16px 4px; }
+  .side .hint { display: none; }
+  .monsters { display: flex; overflow-x: auto; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+  .monsters li { flex: 0 0 auto; scroll-snap-align: start; }
+  .monsters li + li { border-top: 0; border-left: 1px solid var(--line); }
+  .mon { width: auto; padding-right: 14px; }
+  .main { padding: 16px 16px 60px; }
+}
