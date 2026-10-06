@@ -1,0 +1,1 @@
+{"monster": "Smartphone", "clips": {}, "plan": {"action": "engine", "steps": ["engine"], "at": "engine", "actionLabel": "엔진 에셋 만들기", "actionHint": "스프라이트 시트와 스펙 JSON 을 만듭니다 · 1분 안팎 · Unity 에 넣는 것은 그다음에 여쭙니다", "madeNote": "25클립 · 검수 GIF 까지 만들어져 있습니다"}}

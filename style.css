@@ -1,0 +1,809 @@
+/* 시연 화면 — 큰 화면에 띄워 여럿이 함께 보는 것을 전제로 글자와 여백을 넉넉히 둔다.
+   색은 **밝고 따뜻한 창작 도구** 쪽이다. 어두운 배경 + 파란 강조는 개발 콘솔로 읽힌다 (2026-09-18 사용자).
+   칸을 테두리로 나누지 않고 흰 카드를 그림자로 띄운다 — 선이 적을수록 덜 사무적이다. */
+
+:root {
+  --bg: #f7f5f2;          /* 따뜻한 종이 */
+  --panel: #ffffff;
+  --panel-2: #f2efea;
+  --line: #e7e1d9;
+  --text: #241f19;
+  /* 보조 글자 — 종이색 배경에서 흐리면 안 읽힌다. 배경 대비 5:1 이상을 지킨다 (2026-09-18 사용자) */
+  --dim: #655c52;
+  --faint: #8d8378;       /* 파일 크기 · 해상도처럼 정말 부차적인 것만 */
+  --accent: #6b5ce7;      /* 보라 — 알록달록한 스프라이트와 부딪히지 않는다 */
+  --accent-soft: #efecfd;
+  --ok: #2f9a68;
+  --ok-soft: #e9f7f0;
+  --ok-line: #c8e8d8;
+  --warn: #9a6b13;
+  --warn-soft: #fdf6e8;
+  --warn-line: #f0e0bd;
+  --err: #a83a3a;
+  --err-soft: #fdeded;
+  --err-line: #f3cccc;
+  --wait: #bcb4aa;
+  --shadow: 0 1px 2px rgba(44, 40, 35, .04), 0 6px 20px rgba(44, 40, 35, .06);
+  --shadow-sm: 0 1px 2px rgba(44, 40, 35, .05);
+
+  /* 산출물 배경 — 토글로 바뀐다. 연한 얼룩이 어두운 배경에서만 보이면 광택으로 오인된다 */
+  --art-bg: #ece9e4;
+  --art-check: none;
+}
+
+* { box-sizing: border-box; }
+
+/* ==========================================================================
+   상태 문법 — **한 색은 한 뜻만 맡는다**
+   보라색이 선택 · 추천 · 안내 · 진행 · 실행을 겸하고 있어서 볼 때마다
+   "고른 건가? 설명인가? 눌리는 건가?" 를 새로 해석해야 했다 (2026-09-18 코덱스 진단).
+
+     보라  = 지금 고른 것 · 실행 버튼 · 진행 중 · 포커스
+     초록  = 완료 · 산출물 있음
+     호박  = 제약 (여기까지만 됩니다)
+     빨강  = 실패 · 오류
+     회색  = 읽기만 하는 것 · 추천 · 대기
+   ========================================================================== */
+
+/* 배지 — **읽는 것**이다. 절대 누르는 물건처럼 보이지 않게 한다 */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 99px; font-size: 11.5px; font-weight: 600;
+  background: var(--panel-2); color: var(--dim); white-space: nowrap;
+}
+.badge.sel { background: var(--accent); color: #fff; }
+.badge.ok { background: var(--ok-soft); color: var(--ok); }
+.badge.warn { background: var(--warn-soft); color: var(--warn); }
+.badge.err { background: var(--err-soft); color: var(--err); }
+.badge.run { background: var(--accent-soft); color: var(--accent); }
+
+/* 실행 버튼은 두 종류뿐이다 — 주된 것(채움)과 보조(테두리). 배지와 절대 같은 모양을 쓰지 않는다 */
+.btn2 {
+  padding: 9px 16px; border-radius: 10px; font-size: 13px; font-weight: 600;
+  background: var(--panel); color: var(--accent); border: 1.5px solid var(--accent);
+  transition: background .12s;
+}
+.btn2:hover { background: var(--accent-soft); }
+.btn2:disabled { border-color: var(--line); color: var(--wait); background: var(--panel); }
+
+/* ==========================================================================
+   지금 누를 수 없는 것은 **전부 같은 모습**으로 잠근다 (PLAN:demo-ui-rules §3.10)
+   자리마다 다르게 보이면 "이건 왜 눌리지?" 를 매번 시험해 보게 된다.
+   ========================================================================== */
+button:disabled { cursor: not-allowed; }
+.btn2.danger:disabled { color: var(--wait); border-color: var(--line); background: var(--panel); }
+.btn2:disabled:hover { background: var(--panel); }
+.seg-btn:disabled { color: var(--wait); }
+.seg-btn:disabled[aria-pressed="true"] { background: var(--panel-2); color: var(--dim); box-shadow: none; }
+.path:disabled, .opt:disabled { opacity: .5; }
+.path:disabled:hover, .opt:disabled:hover {
+  border-color: var(--line); box-shadow: var(--shadow-sm); transform: none;
+}
+/* 카드처럼 생긴 선택지는 버튼이 아니어서 `:disabled` 가 안 걸린다 — 몸에 표시를 두고 막는다 */
+body.busy .concept.ready { cursor: not-allowed; }
+body.busy .concept.ready:hover { border-color: transparent; box-shadow: var(--shadow-sm); }
+
+/* 읽기 전용 안내 — 보라 면으로 채우지 않는다. 왼쪽 선으로만 표시한다 */
+.note {
+  padding: 10px 14px; border-radius: 0 10px 10px 0; font-size: 13px; line-height: 1.55;
+  background: var(--panel-2); border-left: 3px solid var(--accent); color: var(--dim);
+}
+.note b { color: var(--text); font-weight: 600; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.6 "Pretendard", "Malgun Gothic", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { margin: 0; font-weight: 650; }
+button { font: inherit; color: inherit; cursor: pointer; }
+
+/* 실패는 화면 맨 위에 크게 — 조용한 실패가 빈 화면으로 보이는 것을 막는다 */
+.errbar {
+  position: sticky; top: 0; z-index: 90;
+  padding: 11px 20px; background: var(--err-soft); color: var(--err);
+  border-bottom: 1px solid var(--err-line); font-size: 13.5px;
+}
+
+/* ---------- 상단 ---------- */
+
+.top {
+  display: flex; align-items: center; justify-content: space-between; gap: 32px; flex-wrap: wrap;
+  padding: 20px 28px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.brand h1 { font-size: 21px; letter-spacing: -.015em; }
+.brand .sub { margin: 5px 0 0; color: var(--dim); font-size: 13.5px; }
+
+.metrics { display: flex; gap: 10px; flex-wrap: wrap; }
+.metric {
+  min-width: 100px; padding: 10px 16px;
+  background: var(--bg); border-radius: 12px;
+}
+.metric b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.metric span { font-size: 12px; color: var(--dim); }
+
+/* ---------- 좌우 배치 ---------- */
+
+.layout { display: grid; grid-template-columns: 252px 1fr; align-items: start; }
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+.side {
+  position: sticky; top: 0; align-self: start;
+  padding: 22px 16px; min-height: calc(100vh - 86px);
+}
+.side h2 { font-size: 11.5px; color: var(--dim); letter-spacing: .06em; margin-top: 18px; }
+
+/* 만들러 온 사람이 먼저 보는 자리 — 목록보다 위에 둔다.
+   **이건 목록의 한 줄이 아니라 동작이다.** 목록과 같은 모양이면 버튼으로 안 보인다
+   (2026-09-21 사용자). 보라 면 채우기는 「누르는 것」의 겉모습이다 (§3.7). */
+.side button.newbtn {
+  margin-bottom: 12px; justify-content: center; gap: 8px;
+  padding: 12px 14px; background: var(--accent); color: #fff;
+  box-shadow: var(--shadow-sm); transition: filter .12s;
+}
+.side button.newbtn:hover { background: var(--accent); filter: brightness(1.08); }
+.side button.newbtn .plus { color: #fff; font-size: 15px; line-height: 1; text-align: center; }
+.side button.newbtn .nm { color: #fff; font-weight: 650; }
+/* 지금 그 화면에 있다는 표시는 옅은 고리로만 — 색을 빼면 버튼으로 안 읽힌다 */
+.side button.newbtn[aria-current="true"] {
+  background: var(--accent); box-shadow: 0 0 0 3px rgba(107, 92, 231, .25), var(--shadow-sm);
+}
+.side button.newbtn[aria-current="true"] .nm { color: #fff; }
+.side .hint { margin-top: 16px; font-size: 11.5px; color: var(--dim); line-height: 1.55; }
+
+/* 만든 리소스 목록 — 흰 카드 안에 줄을 나눠 담는다.
+   배경 위에 글자만 띄우면 목록으로 읽히지 않는다 (2026-09-18 사용자). */
+.monsters {
+  list-style: none; margin: 10px 0 0; padding: 0;
+  background: var(--panel); border-radius: 13px; box-shadow: var(--shadow-sm); overflow: hidden;
+}
+.monsters li + li { border-top: 1px solid var(--line); }
+.monsters .loading { color: var(--dim); font-size: 13px; padding: 12px 13px; }
+
+.mon {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 11px; border: 0; border-radius: 0;
+  background: none; text-align: left; transition: background .12s;
+}
+.mon:hover { background: var(--panel-2); }
+.mon[aria-current="true"] { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.mon[aria-current="true"] .nm { color: var(--accent); }
+
+.mon-thumb {
+  width: 34px; height: 34px; flex: none; border-radius: 9px; background: var(--art-bg);
+  overflow: hidden; display: flex; align-items: center; justify-content: center;
+}
+.mon-thumb img { max-width: 100%; max-height: 100%; }
+
+.mon-mid { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.mon .nm { font-weight: 600; font-size: 13.5px; }
+.mon .st { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
+/* 목록 상태는 배지가 맡는다 — 점은 더 쓰지 않는다 (2026-09-18) */
+
+/* 새로 만들기는 목록이 아니라 동작이다 — 카드 밖에 따로 둔다 */
+.newbtn { border-radius: 11px; padding: 11px 13px; }
+
+/* ---------- 본문 ---------- */
+
+.main { padding: 24px 28px 90px; min-width: 0; }
+.empty { color: var(--dim); padding: 60px 0; text-align: center; }
+
+/* ---------- 캐릭터 생성 ---------- */
+
+.order {
+  border-radius: 16px; background: var(--panel); box-shadow: var(--shadow);
+  padding: 20px 22px; margin-bottom: 28px;
+}
+.order-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 13px; }
+.order-head h2 { font-size: 19px; letter-spacing: -.01em; }
+.order-sub { color: var(--dim); font-size: 12.5px; }
+
+/* 입력칸은 **입력칸으로 보여야 한다.**
+   테두리를 투명하게 두면 그냥 글자 띠로 읽혀서 여기에 쓸 수 있다는 걸 모른다 (2026-09-18 사용자).
+   흰 바닥 + 또렷한 테두리 + 안쪽 그림자로 "파인 칸" 을 만든다. */
+.field {
+  background: #fff; color: var(--text);
+  border: 1px solid #d9d2c8; border-radius: 11px;
+  box-shadow: inset 0 1px 2px rgba(44, 40, 35, .05);
+  transition: border-color .12s, box-shadow .12s;
+}
+.field:hover { border-color: #c4bbae; }
+.field:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(107, 92, 231, .14);
+}
+.field::placeholder { color: #a9a199; }
+
+.order-row { display: flex; gap: 10px; align-items: flex-start; }
+.order-row .field { flex: 1; min-width: 0; padding: 12px 15px; font: inherit; }
+/* 여러 줄 칸 — 쓰는 만큼 늘어난다. 손으로 끌어 늘이는 손잡이는 없앤다 (제멋대로 커진다) */
+textarea.grow { resize: none; line-height: 1.55; overflow-y: auto; }
+.regen textarea.grow { width: 100%; padding: 11px 13px; font: inherit; }
+.refine-row textarea.grow { flex: 1; min-width: 0; padding: 11px 14px; font: inherit; }
+/* 어느 회차에 나온 시안인지 */
+.art-round {
+  display: inline-block; margin-right: 7px; padding: 2px 8px; border-radius: 99px;
+  background: var(--panel-2); color: var(--dim); font-size: 11.5px; font-weight: 600;
+}
+.go {
+  padding: 12px 24px; border-radius: 11px; font-weight: 600; white-space: nowrap;
+  background: var(--accent); color: #fff; border: 0; transition: filter .12s;
+}
+.go:hover:not(:disabled) { filter: brightness(1.08); }
+.go:disabled { background: var(--panel-2); color: var(--wait); cursor: default; }
+
+/* 참조 사진 — 말로 전해지지 않는 형태를 준다. 없어도 되는 것이라 조용히 있다가,
+   한 장이라도 올리면 자리를 차지한다 */
+.refs { margin-top: 12px; }
+.refs-drop {
+  display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
+  padding: 12px 15px; border-radius: 12px; cursor: pointer;
+  background: var(--panel); border: 1.5px dashed var(--line);
+  transition: border-color .12s, background .12s;
+}
+.refs-drop:hover, .refs-drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.refs-plus { font-size: 18px; color: var(--accent); font-weight: 600; line-height: 1; }
+.refs-say { font-size: 13px; color: var(--dim); }
+.refs-say b { color: var(--text); font-weight: 650; }
+/* 설명을 옅게 깔지 않는다 — 흐린 글자는 "비활성" 으로 읽혀 아예 안 읽는다 (2026-09-18 사용자) */
+.refs-hint { font-size: 12px; color: var(--dim); margin-left: auto; }
+.refs-list { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 11px; }
+.refs.has .refs-drop { padding: 9px 14px; }
+.ref {
+  position: relative; width: 92px; height: 92px; border-radius: 11px; overflow: hidden;
+  background: var(--art-bg); box-shadow: var(--shadow-sm);
+}
+.ref img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ref-x {
+  position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 99px;
+  border: 0; background: rgba(36, 31, 25, .62); color: #fff; font-size: 12px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.ref-x:hover { background: var(--err); }
+.refs-err { width: 100%; font-size: 12px; color: var(--err); }
+/* 「새 주문이라 사진을 뺐습니다」 는 실패가 아니라 알림이다 — 빨강을 쓰지 않는다 (§3.1) */
+.refs-note { width: 100%; font-size: 12px; color: var(--dim); }
+body.busy .refs-drop { cursor: not-allowed; border-color: var(--line); background: var(--panel); }
+
+/* 지금까지 말한 것 — 읽기만 하는 자리다. 보라 면으로 채우지 않고 왼쪽 선으로만 표시한다 (§3.1) */
+.said {
+  margin-top: 14px; padding: 11px 14px; border-radius: 10px;
+  background: var(--bg); border-left: 3px solid var(--accent);
+}
+.said-k { font-size: 11.5px; color: var(--dim); letter-spacing: .02em; margin-bottom: 7px; }
+.said-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.said-list li { font-size: 13px; color: var(--text); line-height: 1.55; }
+/* 아직 반영되지 않은 줄 — 보내 놓고 기다리는 중이다 */
+.said-list li.said-wait { color: var(--dim); }
+.said-list li.said-wait .said-n { background: var(--accent-soft); color: var(--accent); }
+.said-n {
+  display: inline-block; margin-right: 8px; padding: 2px 8px; border-radius: 99px;
+  background: var(--panel-2); color: var(--dim); font-size: 11.5px; font-weight: 600;
+  vertical-align: 1px;
+}
+
+/* 분해 결과 — 확정이 아니라 제안이다. 사람이 고칠 수 있어야 한다 */
+.axes { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 17px; }
+.axes-head { display: flex; align-items: baseline; gap: 11px; flex-wrap: wrap; margin-bottom: 13px; }
+.axes-head b { font-size: 15.5px; }
+.axes-hint { color: var(--dim); font-size: 12.5px; }
+
+.axes-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(212px, 1fr)); }
+.axis { background: var(--bg); border-radius: 14px; padding: 14px 15px 15px; }
+.axis .k { font-size: 11.5px; color: var(--dim); letter-spacing: .02em; margin-bottom: 10px; }
+.axis .v { font-size: 16px; font-weight: 600; margin-top: 3px; }
+.axis .v small { font-size: 12px; font-weight: 400; color: var(--dim); }
+
+/* 고르는 축은 **두 선택지를 다 보여준다** — 숨겨 놓고 순환시키면 누를 수 있다는 걸 알 수 없다 */
+.seg { display: flex; gap: 4px; padding: 4px; background: var(--panel); border-radius: 11px; box-shadow: var(--shadow-sm); }
+.seg-btn {
+  flex: 1; padding: 9px 6px; border: 0; border-radius: 8px; background: transparent;
+  color: var(--dim); font-size: 13.5px; font-weight: 500; transition: background .12s, color .12s;
+}
+.seg-btn:hover:not([aria-pressed="true"]):not(:disabled) { background: var(--panel-2); color: var(--text); }
+/* **보라 면 채우기는 「누르는 것」 하나만 쓴다** — 고른 것은 테두리 + 옅은 배경이다.
+   면을 채워 놓으니 바로 아래 실행 버튼과 무게가 같아져 버튼이 버튼으로 안 보였다 (2026-09-18 사용자) */
+.seg-btn[aria-pressed="true"] {
+  background: var(--accent-soft); color: var(--accent); font-weight: 650;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.seg.locked .seg-btn { cursor: default; }
+.seg.locked .seg-btn[aria-pressed="true"] { background: var(--panel-2); color: var(--text); box-shadow: none; }
+
+/* 모티프는 고르는 게 아니라 고쳐 쓰는 칸이다 */
+.motif-input { width: 100%; padding: 10px 12px; font: inherit; font-size: 16px; font-weight: 600; }
+
+.proj { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--dim); }
+.proj-input { flex: 1; min-width: 0; padding: 7px 10px; font: inherit; font-size: 12.5px; border-radius: 8px; }
+
+.refine { margin-top: 14px; }
+.refine-row { display: flex; gap: 8px; align-items: flex-start; }
+.refine-row .field { flex: 1; min-width: 0; padding: 10px 14px; font: inherit; font-size: 13px; }
+.refine-row .btn2 { padding: 10px 18px; }
+
+.axes-info { margin-top: 14px; padding-top: 13px; border-top: 1px dashed var(--line); }
+.axis-reason { margin-top: 12px; font-size: 12.5px; color: var(--dim); line-height: 1.6; }
+.axis-reason b { color: var(--text); font-weight: 600; }
+/* 읽기 전용 안내다 — 보라 면으로 채우면 "고른 것" 으로 읽힌다 (.note 규칙을 따른다) */
+.axis-note {
+  margin-top: 12px; padding: 10px 14px; border-radius: 0 10px 10px 0; font-size: 12.5px;
+  background: var(--panel-2); border-left: 3px solid var(--accent); color: var(--dim);
+}
+.axis-err {
+  margin-top: 14px; padding: 11px 14px; border-radius: 10px;
+  background: var(--err-soft); border: 1px solid var(--err-line); color: var(--err); font-size: 13px;
+}
+
+/* ---------- 준비 상태 ---------- */
+
+.ready { margin-top: 15px; border-radius: 13px; padding: 14px 16px; }
+.ready.ok { background: var(--ok-soft); }
+.ready.no { background: var(--warn-soft); }
+/* 고른 경로의 끝 — 실패가 아니라 제약이다 (규칙 §3.1: 호박=제약, 빨강=실패) */
+.ready.limit { background: var(--warn-soft); }
+.ready.limit .ready-head { color: var(--warn); }
+.ready-list li.limit::before { content: "—"; color: var(--warn); }
+.ready-limit-note { margin: 11px 0 0; font-size: 12.5px; color: var(--warn); line-height: 1.55; }
+.nextstep.limited .nextstep-head { color: var(--warn); }
+.stage.nexthere .num { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+/* 종이색 위에 종이색을 깔면 떠 보이지 않는다 — 흰 카드를 그림자로 띄운다 */
+.ready.new { background: var(--panel); box-shadow: var(--shadow-sm); }
+.ready-head { font-weight: 650; font-size: 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.chip.tiny { padding: 3px 10px; font-size: 11.5px; font-weight: 500; }
+.ready.ok .ready-head { color: var(--ok); }
+.ready.no .ready-head { color: var(--warn); }
+.ready.new .ready-head { color: var(--text); }
+
+.ready-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ready-list li { font-size: 12.5px; color: var(--dim); padding-left: 22px; position: relative; }
+.ready-list li b { color: var(--text); font-weight: 600; }
+.ready-list li::before { position: absolute; left: 0; }
+.ready-list li.yes::before { content: "✓"; color: var(--ok); }
+.ready-list li.no::before { content: "✗"; color: var(--err); }
+.ready-list li.opt::before { content: "·"; color: var(--dim); }
+/* 읽기만 하는 줄이다 — 보라는 고른 것 · 누르는 것에만 쓴다 (규칙 §3.1) */
+.ready-list li.need::before { content: "→"; color: var(--faint); }
+
+.ready-done { margin: 0 0 12px; font-size: 12.5px; color: var(--dim); line-height: 1.55; }
+.ready-act { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+.ready-hint { font-size: 12px; color: var(--dim); }
+
+/* ---------- 정하기 ---------- */
+
+.decide-slot:not(:empty) { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 15px; }
+.decide-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 15px; }
+.decide-sub { color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+.q { margin-bottom: 16px; }
+.q-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.q-title b { font-size: 13.5px; }
+.q-why { color: var(--dim); font-size: 12px; }
+
+.q-opts { display: grid; gap: 9px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.opt {
+  text-align: left; padding: 11px 13px; border-radius: 12px;
+  background: var(--panel); border: 1px solid transparent; box-shadow: var(--shadow-sm);
+  transition: border-color .12s, background .12s;
+}
+.opt:hover { border-color: var(--line); }
+.opt[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.opt-top { display: flex; align-items: center; gap: 10px; }
+.opt-label { font-size: 13px; font-weight: 600; }
+.opt-why { margin-top: 6px; font-size: 11.5px; color: var(--dim); line-height: 1.5; }
+
+.swatch { width: 26px; height: 26px; border-radius: 8px; border: 1px solid var(--line); flex: none; display: inline-block; }
+.markimg { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); flex: none; }
+
+.decide-prev {
+  display: flex; align-items: center; gap: 13px; flex-wrap: wrap;
+  margin: 4px 0 13px; padding: 12px 14px; border-radius: 12px; background: var(--bg);
+}
+.decide-prev .markimg { width: 56px; height: 56px; }
+.prev-cheek { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--dim); }
+
+/* 만들기 시작한 뒤 — 고른 결과만 한 줄로 */
+.axes-fixed { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.fixed-motif { font-size: 17px; font-weight: 650; margin-right: 4px; }
+.fixed-chip {
+  padding: 5px 12px; border-radius: 99px; font-size: 12.5px; font-weight: 550;
+  background: var(--accent-soft); color: var(--accent);
+}
+
+/* ---------- 어떻게 만들지 묻기 ----------
+   아직 없는 종류인데 계열 이름이 들어 있으면 조용히 정하지 않는다. 가는 거리가 달라지기 때문이다. */
+
+/* 선택 화면은 설명 상자가 아니다 — 배경을 두지 않고 카드만 세워 고르는 자리로 보이게 한다 */
+.choose { margin-top: 16px; }
+.choose-head { font-size: 16.5px; font-weight: 650; }
+.choose-sub { margin: 6px 0 14px; font-size: 13.5px; color: var(--dim); }
+
+.path-opts { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.path {
+  text-align: left; padding: 15px 17px; border-radius: 14px;
+  background: var(--panel); border: 2px solid var(--line); box-shadow: var(--shadow-sm);
+  transition: border-color .12s, box-shadow .14s, transform .12s;
+}
+.path:hover { border-color: var(--accent); box-shadow: var(--shadow); transform: translateY(-1px); }
+/* 만드는 중에는 고를 수 없다 — 눌러도 반영되지 않는데 눌리는 것처럼 보이면 안 된다 */
+.choose.locked .path { cursor: default; }
+.choose.locked .path:hover { border-color: var(--line); box-shadow: var(--shadow-sm); transform: none; }
+.choose.locked .path[aria-pressed="true"]:hover { border-color: var(--accent); }
+.choose.locked .path[aria-pressed="false"] { opacity: .6; }
+/* 추천은 **배지로만** 말한다. 배경까지 칠하면 고르지 않아도 고른 것처럼 보인다 (2026-09-18 사용자) */
+.path[aria-pressed="true"] {
+  border-color: var(--accent); background: var(--accent-soft);
+  box-shadow: 0 0 0 3px rgba(107, 92, 231, .12), var(--shadow-sm);
+}
+.path[aria-pressed="true"] .path-title::after {
+  content: "선택됨"; margin-left: auto; font-size: 11.5px; font-weight: 650;
+  padding: 3px 10px; border-radius: 99px; background: var(--accent); color: #fff;
+}
+.path-list { margin: 12px 0 10px; gap: 7px; }
+.path-list li { font-size: 13px; padding-left: 21px; line-height: 1.55; }
+
+/* 기준이 되는 몸을 실제로 보여준다 — "기존 슬라임" 이라는 말만으로는 무엇인지 알 수 없다 */
+.path-base { display: flex; align-items: flex-end; gap: 10px; margin: 11px 0 3px; flex-wrap: wrap; }
+.path-base.new {
+  height: 74px; display: grid; place-content: center; width: 100%;
+  border-radius: 11px; border: 2px dashed var(--line); color: var(--dim); font-size: 12.5px;
+}
+.base-fig { margin: 0; text-align: center; }
+.base-fig img {
+  display: block; width: 66px; height: 66px; object-fit: contain;
+  background: var(--art-bg); border-radius: 11px;
+}
+.base-fig.sm img { width: 34px; height: 34px; border-radius: 8px; }
+.base-fig figcaption { font-size: 11.5px; color: var(--dim); margin-top: 4px; }
+.base-fam { display: flex; gap: 5px; flex-wrap: wrap; }
+
+.path-title { font-size: 15.5px; font-weight: 650; display: flex; align-items: center; gap: 8px; }
+.path-desc { margin-top: 8px; font-size: 13px; color: var(--dim); line-height: 1.55; }
+.path-reach { margin-top: 8px; font-size: 12.5px; color: var(--accent); font-weight: 600; }
+.path:not(.rec) .path-reach { color: var(--warn); }
+
+/* ---------- 최종 확인 ----------
+   고른 것이 흩어져 있으면 무엇으로 만드는지 한눈에 안 들어온다. 실행 직전에 한 번 모아 보여준다.
+   추천이 기본으로 골라져 있어도 여기서 다시 보게 되므로 잘못 만들 일이 없다 (2026-09-18 사용자). */
+
+.confirm {
+  margin-top: 20px; padding: 18px 20px; border-radius: 14px;
+  background: var(--panel); border: 2px solid var(--accent); box-shadow: var(--shadow);
+}
+.confirm-head { display: flex; align-items: center; gap: 10px; margin-bottom: 13px; }
+.confirm-head b { font-size: 15.5px; }
+
+.confirm-rows { display: grid; gap: 9px; margin-bottom: 15px; }
+.confirm-row { display: flex; align-items: baseline; gap: 12px; font-size: 13.5px; }
+.confirm-row .ck { width: 78px; flex: none; color: var(--dim); font-size: 12.5px; }
+.confirm-row .cv { font-weight: 600; }
+.confirm-row .cv em { font-style: normal; font-weight: 400; color: var(--dim); margin-left: 6px; }
+
+.confirm-act { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.confirm-note { font-size: 12.5px; color: var(--dim); }
+
+/* ---------- 시안 고르기 ---------- */
+
+.concept-slot:not(:empty) { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 15px; }
+.concepts { display: grid; gap: 13px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+
+.concept {
+  background: var(--panel); border-radius: 14px; box-shadow: var(--shadow-sm);
+  border: 2px solid transparent; padding: 12px; display: flex; flex-direction: column; gap: 9px;
+  transition: border-color .12s, box-shadow .14s;
+}
+.concept.ready { cursor: pointer; }
+.concept.ready:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+
+/* 시안은 **고르는 것**이다 — 최종 확정 전까지 셋이 다 남아 있고 고른 것만 강조된다.
+   고르자마자 선택지를 치우면 무엇을 골랐는지 · 다시 고를 수 있는지 알 수 없다 (2026-09-18 사용자).
+   겉모습은 골격 · 이동 카드(.path)와 같은 문법을 쓴다 — 테두리 + 옅은 배경 + 배지. */
+.concept[aria-pressed="true"] {
+  border-color: var(--accent); background: var(--accent-soft);
+  box-shadow: 0 0 0 3px rgba(107, 92, 231, .12), var(--shadow-sm);
+}
+.concept[aria-pressed="true"] .concept-label::after {
+  content: "선택됨"; margin-left: auto; font-size: 11.5px; font-weight: 650;
+  padding: 3px 10px; border-radius: 99px; background: var(--accent); color: #fff;
+}
+/* 확정한 뒤에도 카드는 남는다 — 고를 수만 없어진다 */
+.concepts.locked .concept { cursor: default; }
+.concepts.locked .concept.ready:hover { border-color: transparent; box-shadow: var(--shadow-sm); }
+.concepts.locked .concept[aria-pressed="false"] { opacity: .55; }
+.concepts.locked .concept[aria-pressed="true"] { cursor: default; }
+.concepts.locked .concept[aria-pressed="true"]:hover { border-color: var(--accent); }
+.concepts.locked .concept[aria-pressed="true"] .concept-label::after { content: "확정됨"; }
+.concept-act { display: flex; align-items: center; gap: 12px; margin-top: 15px; flex-wrap: wrap; }
+/* 가운데 정렬에 `place-items` 를 쓰면 이미지의 height:100% 가 기준을 잃고 원본 비율로 커져
+   위쪽만 남기고 잘린다 (2026-09-18 사용자). flex + max-* 로 담는다. */
+.concept-img {
+  border-radius: 10px; background: var(--art-bg); background-image: var(--art-check);
+  background-size: 16px 16px; height: 190px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.concept-img img { max-width: 100%; max-height: 100%; }
+.concept-wait { color: var(--dim); font-size: 12.5px; display: flex; align-items: center; }
+.concept-label { font-size: 13.5px; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.concept-bad { font-size: 11.5px; color: var(--err); line-height: 1.5; }
+.concept.bad { border-color: var(--err-line); }
+.concept-look { font-size: 11.5px; color: var(--dim); line-height: 1.5; flex: 1; }
+.concept .go { padding: 9px 14px; font-size: 13px; border-radius: 9px; }
+
+/* ---------- 실행 진행 ---------- */
+
+.runbar {
+  border-radius: 13px; background: var(--accent-soft);
+  padding: 14px 17px; margin-bottom: 20px;
+}
+.runbar.done { background: var(--ok-soft); }
+.runbar.failed { background: var(--err-soft); }
+.runbar.stopped { background: var(--panel-2); }
+.runbar-head { display: flex; align-items: center; gap: 11px; flex-wrap: wrap; }
+.runbar-head b { font-size: 15px; }
+.runbar-sub { color: var(--faint); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.runbar-err { margin-top: 9px; font-size: 13px; color: var(--err); }
+
+/* 단계 카드에 실행 상태를 얹는다 */
+.stage[data-run="run"] .num { border-color: var(--accent); color: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+.stage[data-run="ok"] .num { border-color: var(--ok); color: var(--ok); }
+.stage[data-run="fail"] .num { border-color: var(--err); color: var(--err); }
+.stage[data-run="wait"] .num { opacity: .45; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(107, 92, 231, .14); } }
+
+.stage-log {
+  margin: 0 0 13px; padding: 10px 13px; max-height: 160px; overflow: auto;
+  background: var(--bg); border-radius: 10px;
+  font: 11.5px/1.7 ui-monospace, Consolas, monospace; color: #6d655c; white-space: pre-wrap;
+}
+.stage-log .err { color: var(--err); }
+
+.spin {
+  display: inline-block; width: 13px; height: 13px; vertical-align: -2px; margin-right: 8px;
+  border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- 종류 머리 ---------- */
+
+.mon-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.mon-head h2 { font-size: 25px; letter-spacing: -.02em; }
+.mon-head .id { color: var(--dim); font-size: 13px; }
+.mon-head .tag {
+  padding: 3px 11px; border-radius: 99px; font-size: 11.5px;
+  background: var(--panel-2); color: var(--dim);
+}
+.mon-head .tag.ok { color: var(--ok); background: var(--ok-soft); }
+
+/* 삭제 — 되돌릴 수 없으니 빨강으로 말하고, 확인을 한 번 받는다 */
+/* 화면 끝으로 밀어내면 제목과 멀어져 **무엇을 지우는 버튼인지** 안 보인다.
+   제목 옆에 붙이되, 실수로 눌리지 않게 뱃지와 한 칸 띄운다 (2026-09-21 사용자) */
+.del { margin-left: 6px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.btn2.danger { color: var(--err); border-color: var(--err-line); }
+.btn2.danger:hover { background: var(--err-soft); border-color: var(--err); }
+.del-ask { font-size: 12.5px; color: var(--err); }
+.del-err { font-size: 12.5px; color: var(--err); }
+
+.toolbar {
+  display: flex; gap: 8px; align-items: center; margin: 15px 0 24px; flex-wrap: wrap;
+  padding: 9px 13px; background: var(--panel); border-radius: 12px; box-shadow: var(--shadow-sm);
+}
+.toolbar .lbl { font-size: 12.5px; color: var(--dim); margin-right: 4px; font-weight: 550; }
+/* chip 은 이제 **보기 방식 필터** 전용이다 (산출물 배경 토글).
+   배지 · 보조 실행 버튼은 각각 .badge · .btn2 로 갈랐다 — 같은 모양이 여러 역할을 맡으면
+   "읽는 것인지 누르는 것인지" 가 흔들린다 (2026-09-18 코덱스 진단). */
+.chip {
+  padding: 6px 14px; border-radius: 9px; font-size: 12.5px;
+  background: var(--panel); border: 1px solid transparent; box-shadow: var(--shadow-sm);
+  transition: border-color .12s, color .12s;
+}
+.chip:hover { border-color: var(--line); }
+.chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.btn2.tiny { padding: 4px 11px; font-size: 11.5px; }
+
+/* 이어서 만드는 자리 — **다음에 돌아갈 단계 안**에 둔다. 맨 위에 두면 어느 단계 얘기인지 알 수 없다 */
+.nextstep {
+  margin: 4px 0 4px; padding: 15px 17px; border-radius: 13px;
+  background: var(--panel); box-shadow: var(--shadow);
+}
+.nextstep-head { font-size: 14.5px; font-weight: 650; color: var(--accent); }
+.nextstep .ready { margin-top: 11px; }
+/* 다음에 돌아갈 단계는 번호도 그렇게 보여야 한다 */
+.stage.nexthere .num { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.stage.nexthere .stage-none { display: none; }
+
+/* ---------- 단계 ---------- */
+
+.stage {
+  position: relative;
+  padding: 0 0 28px 46px;
+  border-left: 2px solid #ddd5c9;
+  margin-left: 15px;
+}
+.stage:last-child { border-left-color: transparent; }
+/* 번호는 **제작 순서**다 — 작고 흐리면 낱개 표식으로 읽힌다 (2026-09-18 사용자) */
+.stage .num {
+  position: absolute; left: -19px; top: 0;
+  width: 36px; height: 36px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--panel); border: 2px solid #b8ac9c;
+  font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text);
+}
+.stage.has .num { border-color: var(--ok); color: var(--ok); }
+.stage.na .num { border-style: dashed; }
+
+/* 아직 아무것도 안 만든 상태 — 앞으로 거칠 과정을 카드로 세워 둔다.
+   옅게 깔면 "설명"이 아니라 "비활성"으로 읽혀서 아예 안 읽는다 (2026-09-18 사용자). */
+/* 첫 화면은 번호를 카드 **안**에 넣고 카드 사이를 선으로 잇는다 —
+   떠 있는 동그라미만 있으면 낱개 표식으로 읽혀 "순서" 가 안 보인다 (2026-09-18 사용자). */
+.stage.blank {
+  border-left-color: transparent;
+  background: var(--panel); border-radius: 13px; box-shadow: var(--shadow-sm);
+  padding: 16px 20px 17px 76px; margin-bottom: 10px;
+}
+.stage.blank .num {
+  left: 20px; top: 15px; width: 40px; height: 40px; font-size: 17px;
+  background: var(--panel-2); border-color: #b8ac9c; color: var(--text);
+}
+.stage.blank::after {                    /* 카드 사이를 잇는 선 */
+  content: ""; position: absolute; left: 39px; top: 100%;
+  width: 2px; height: 10px; background: #cdc3b5;
+}
+.stage.blank:last-child::after { display: none; }
+.stage.blank .stage-none { display: none; }
+.stage.blank .stage-head { padding-top: 3px; }
+.stage.blank .stage-desc { margin-bottom: 0; }
+.overview-sub { margin: 5px 0 26px; color: var(--dim); font-size: 13.5px; }
+
+.stage-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-height: 30px; }
+.stage-head h3 { font-size: 17px; letter-spacing: -.01em; }
+.stage-desc { margin: 3px 0 13px; color: #4e463d; font-size: 13.5px; }
+.stage-none { color: var(--wait); font-size: 13px; padding: 4px 0 8px; }
+/* 다음에 할 일 — 멈춘 단계에서 사람이 무엇을 하면 되는지 */
+.stage-todo {
+  margin: 0 0 13px; padding: 9px 14px; border-radius: 0 10px 10px 0; font-size: 13px; font-weight: 550;
+  background: var(--accent-soft); border-left: 3px solid var(--accent); color: var(--accent);
+}
+
+/* ---------- 산출물 ---------- */
+
+.grid { display: grid; gap: 13px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.grid.wide { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+
+.art {
+  border-radius: 13px; overflow: hidden; background: var(--panel);
+  border: 2px solid transparent; box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column; transition: box-shadow .14s, transform .14s;
+}
+.art:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+/* 고른 시안 — 상태 문법대로 테두리 + 배경으로 (2026-09-18 사용자) */
+.art.chosen { border-color: var(--accent); background: var(--accent-soft); }
+.art.chosen figcaption { background: var(--accent-soft); border-top-color: #d8d2fa; }
+.art.bad { border-color: var(--err-line); }
+.art button.thumb {
+  padding: 0; border: 0; background: var(--art-bg); background-image: var(--art-check);
+  background-size: 16px 16px; display: block; width: 100%;
+}
+.art img { display: block; width: 100%; height: 132px; object-fit: contain; }
+.art.tall img { height: 200px; }
+
+/* 가로로 긴 시트 — 줄 전체를 쓰고 높이는 내용에 맡긴다 */
+.art.panorama { grid-column: 1 / -1; }
+.art.panorama img { height: auto; max-height: 190px; padding: 6px; }
+/* **사람이 판단하는 그림** — 파츠 검수처럼 눈으로 봐야 정하는 것은 크게 띄운다.
+   132px 칸에 넣으면 어깨가 어디 붙었는지 볼 수가 없다 (2026-09-22 사용자) */
+.art.big { grid-column: 1 / -1; }
+.art.big img { height: auto; max-height: 460px; padding: 8px; }
+.art figcaption {
+  padding: 9px 11px; font-size: 12.5px; line-height: 1.45;
+  border-top: 1px solid var(--line); color: var(--text);
+}
+.art figcaption .meta { display: block; color: var(--faint); font-size: 11.5px; margin-top: 3px; font-variant-numeric: tabular-nums; }
+
+/* 시안 카드의 고르기 줄 — 보는 물건이 아니라 **고르는 물건**이다 */
+.art-act {
+  padding: 0 11px 11px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.art-act .btn2 { width: 100%; justify-content: center; }
+.art-bad { font-size: 11px; color: var(--err); line-height: 1.45; }
+.badge.sel { color: var(--accent); background: var(--accent-soft); }
+
+/* 시안 확정 — **단계에 하나뿐인 버튼**. 자리는 다음 단계 바로 위다 (2026-09-21 사용자) */
+.commit {
+  margin-top: 14px; padding: 13px 15px; border-radius: 12px;
+  background: var(--panel); box-shadow: var(--shadow-sm);
+  display: flex; align-items: center; gap: 13px; flex-wrap: wrap;
+}
+.commit.done { background: var(--ok-soft); box-shadow: none; }
+.commit-say { font-size: 13px; font-weight: 600; color: var(--ok); }
+.commit-hint { font-size: 12.5px; color: var(--dim); }
+.commit-err { font-size: 12.5px; color: var(--err); width: 100%; }
+
+/* 다시 만들기 확인 — 되돌릴 수 없는 일이라 무엇이 사라지고 무엇이 유지되는지 먼저 말한다 */
+.regen {
+  width: 100%; margin-top: 12px; padding: 13px 15px; border-radius: 11px;
+  background: var(--warn-soft); display: grid; gap: 9px;
+}
+.regen-head { font-size: 13px; font-weight: 650; color: var(--warn); }
+.regen-warn { font-size: 12.5px; color: var(--warn); line-height: 1.55; }
+.regen-keep { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.regen-keep li { font-size: 12.5px; color: var(--dim); padding-left: 16px; position: relative; }
+.regen-keep li::before { content: "·"; position: absolute; left: 4px; color: var(--faint); }
+.regen-act { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.pair .art { border-radius: 0; box-shadow: none; }
+.pair .art:hover { transform: none; box-shadow: none; }
+.pairwrap { border-radius: 13px; overflow: hidden; box-shadow: var(--shadow-sm); }
+.pairwrap .art:first-child { border-right: 1px solid var(--line); }
+
+/* 리그 · 스펙 카드 — 그림이 아니라 수치를 보여준다 */
+.card {
+  border-radius: 13px; background: var(--panel); box-shadow: var(--shadow-sm);
+  padding: 13px 15px; font-size: 12.5px;
+}
+.card h4 { margin: 0 0 8px; font-size: 13.5px; }
+.card dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
+.card dt { color: var(--dim); }
+.card dd { margin: 0; font-variant-numeric: tabular-nums; }
+.card code { background: var(--panel-2); padding: 1px 6px; border-radius: 5px; font-size: 11.5px; }
+
+/* ---------- 라이트박스 ---------- */
+
+.lightbox {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(40, 35, 29, .55); backdrop-filter: blur(3px);
+  display: flex; flex-direction: column;
+}
+/* display 를 지정하면 hidden 속성(브라우저 기본 display:none)을 덮어써서 항상 열린 채가 된다 */
+.lightbox[hidden] { display: none; }
+.lb-bar {
+  display: flex; align-items: center; gap: 14px;
+  padding: 13px 20px; background: var(--panel);
+}
+.lb-title { font-weight: 650; }
+.lb-meta { color: var(--faint); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.lb-close { margin-left: auto; background: none; border: 0; font-size: 20px; color: var(--dim); line-height: 1; }
+.lb-close:hover { color: var(--text); }
+.lb-body {
+  flex: 1; display: grid; place-items: center; padding: 24px; overflow: auto;
+  background: var(--art-bg); background-image: var(--art-check); background-size: 22px 22px;
+}
+.lb-body img { max-width: 100%; max-height: calc(100vh - 110px); object-fit: contain; }
+
+/* ---------- 애니메이션 검수 카드 (UI 규칙 §3.12) ---------- */
+.review-box { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.review-head { font-size: 16px; font-weight: 650; color: var(--text); }
+.review-desc { font-size: 13px; color: var(--dim); line-height: 1.55; margin: 6px 0 12px; }
+.review-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; align-items: start; }
+.review-card { background: var(--panel); border-radius: 12px; box-shadow: var(--shadow); padding: 12px; display: grid; gap: 10px; align-content: start; }
+.review-card.oked { box-shadow: 0 0 0 1.5px var(--ok-line), var(--shadow); }
+.review-card-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 15.5px; }
+.review-gif { width: 100%; border-radius: 8px; background: var(--art-bg); background-image: var(--art-check);
+              background-size: 20px 20px; background-position: 0 0, 10px 10px; }
+.review-rounds { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.review-rounds .lbl { font-size: 12px; color: var(--dim); margin-right: 2px; }
+.review-why { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 13px; line-height: 1.5; }
+.review-why .said-k { margin: 0; }
+.review-act { display: flex; gap: 8px; align-items: center; }
+.review-fb { display: grid; gap: 8px; }
+.review-fb textarea { resize: none; font: inherit; font-size: 13.5px; }
+.review-pending { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--accent);
+                  background: var(--accent-soft); border-radius: 8px; padding: 8px 10px; }
+.review-confirm { display: grid; gap: 8px; font-size: 13.5px; background: var(--panel-2); border-left: 3px solid var(--accent);
+                  border-radius: 6px; padding: 10px 12px; }
+.review-confirm button { justify-self: start; }
+.amber-note { font-size: 12.5px; color: var(--warn); }
+.anim-pick { display: grid; gap: 12px; margin-top: 10px; }
+.art-note { font-size: 12.5px; color: var(--dim); line-height: 1.5; margin: 6px 2px 0; }
+.art-note.warn { color: var(--warn); }
+
+/* 공개용 읽기 전용 사본 — 주문 · 만들기 · 고르기 · 고치기를 숨긴다. 화면의 실행 버튼은 전부 .go · .btn2 다 */
+body.static #order,
+body.static .go,
+body.static .btn2,
+body.static main textarea { display: none !important; }

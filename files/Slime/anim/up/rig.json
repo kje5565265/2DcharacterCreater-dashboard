@@ -1,0 +1,36 @@
+{
+  "canvas": [
+    1254,
+    1254
+  ],
+  "parts": [
+    {
+      "name": "torso",
+      "file": "torso.png",
+      "z": 0,
+      "parent": null,
+      "pivot": [
+        628.5,
+        975
+      ],
+      "at": [
+        628.5,
+        965
+      ]
+    },
+    {
+      "name": "pouch",
+      "file": "pouch.png",
+      "z": 1,
+      "parent": "torso",
+      "pivot": [
+        103.5,
+        88.5
+      ],
+      "at": [
+        826,
+        830
+      ]
+    }
+  ]
+}

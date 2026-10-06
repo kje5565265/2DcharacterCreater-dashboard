@@ -1,0 +1,22 @@
+{
+  "canvas": [
+    1254,
+    1254
+  ],
+  "parts": [
+    {
+      "name": "torso",
+      "file": "torso.png",
+      "z": 0,
+      "parent": null,
+      "pivot": [
+        641.5,
+        1133
+      ],
+      "at": [
+        641.5,
+        1133
+      ]
+    }
+  ]
+}

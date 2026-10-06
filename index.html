@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>리소스 자동생산 파이프라인</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='19' r='11' fill='%236b5ce7'/%3E%3Ccircle cx='12' cy='17' r='2' fill='%23fff'/%3E%3Ccircle cx='20' cy='17' r='2' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <h1>리소스 자동생산 파이프라인</h1>
+    <p class="sub">말 한 줄 → 시안 · 파츠 · 리그 · 동작 클립 · 엔진 에셋</p>
+  </div>
+  <div class="metrics" id="metrics"></div>
+</header>
+
+<div class="layout">
+
+  <aside class="side">
+    <button class="mon newbtn" id="newBtn" aria-current="true">
+      <span class="plus">＋</span><span class="nm">새로 만들기</span>
+    </button>
+    <h2>이미 만든 것</h2>
+    <ul class="monsters" id="monsters"><li class="loading">읽는 중…</li></ul>
+    <p class="hint">단계 수는 산출물이 실제로 존재하는 단계입니다.</p>
+  </aside>
+
+  <main class="main">
+
+    <section class="order" id="order">
+      <div class="order-head">
+        <h2>캐릭터 생성</h2>
+        <span class="order-sub">만들고 싶은 것을 말로 적으면 제작 축으로 분해합니다</span>
+      </div>
+      <div class="order-row">
+        <!-- 한 줄 칸에 긴 문장을 넣으면 쓴 것을 볼 수가 없다. 쓰는 만큼 늘어나게 한다 -->
+        <textarea id="orderText" class="field grow" rows="2" autocomplete="off"
+                  placeholder="예) 책상 몬스터인데 유령처럼 둥둥 떠다니고 근거리야"></textarea>
+        <button id="orderGo" class="go">분석 시키기</button>
+      </div>
+      <!-- 말로는 전해지지 않는 형태를 사진으로 준다. 글보다 이쪽이 우선이다 -->
+      <div class="refs" id="refs">
+        <label class="refs-drop" id="refsDrop">
+          <input type="file" id="refsInput" accept="image/*" multiple hidden>
+          <span class="refs-plus">＋</span>
+          <span class="refs-say"><b>참고 사진</b>을 끌어다 놓거나 눌러서 고르세요</span>
+          <span class="refs-hint">실물 사진을 주면 형태를 그대로 따릅니다 · 그림체는 SD 로 바뀝니다</span>
+        </label>
+        <div class="refs-list" id="refsList"></div>
+      </div>
+      <div class="axes" id="axes" hidden></div>
+    </section>
+
+    <div id="main">
+      <div class="empty">종류를 고르면 단계별 산출물이 여기 나옵니다.</div>
+    </div>
+
+  </main>
+
+</div>
+
+<div class="lightbox" id="lightbox" hidden>
+  <div class="lb-bar">
+    <span class="lb-title" id="lbTitle"></span>
+    <span class="lb-meta" id="lbMeta"></span>
+    <button class="lb-close" id="lbClose" title="닫기 (Esc)">✕</button>
+  </div>
+  <div class="lb-body" id="lbBody"><img id="lbImg" alt=""></div>
+</div>
+
+<script>window.DEMO_STATIC = true;</script>
+<script src="app.js"></script>
+</body>
+</html>

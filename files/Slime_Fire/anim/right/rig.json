@@ -1,0 +1,73 @@
+{
+  "canvas": [
+    1254,
+    1254
+  ],
+  "parts": [
+    {
+      "name": "torso",
+      "file": "torso.png",
+      "z": 0,
+      "parent": null,
+      "pivot": [
+        628.5,
+        965
+      ],
+      "at": [
+        628.5,
+        965
+      ],
+      "variants": {
+        "attack": {
+          "file": "face/torso_attack.png",
+          "pivot": [
+            628.5,
+            965
+          ]
+        },
+        "battle": {
+          "file": "face/torso_battle.png",
+          "pivot": [
+            628.5,
+            965
+          ]
+        },
+        "death": {
+          "file": "face/torso_death.png",
+          "pivot": [
+            628.5,
+            965
+          ]
+        },
+        "hit": {
+          "file": "face/torso_hit.png",
+          "pivot": [
+            628.5,
+            965
+          ]
+        },
+        "walk": {
+          "file": "face/torso_walk.png",
+          "pivot": [
+            628.5,
+            965
+          ]
+        }
+      }
+    },
+    {
+      "name": "prop",
+      "file": "prop.png",
+      "z": 1,
+      "parent": "torso",
+      "pivot": [
+        35.5,
+        93.0
+      ],
+      "at": [
+        627.5,
+        330.0
+      ]
+    }
+  ]
+}
